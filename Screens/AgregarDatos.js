@@ -10,12 +10,8 @@ import {
 } from "react-native";
 import { auth, db } from "../BasedeDatos/Firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import {
-  Ionicons,
-  MaterialCommunityIcons,
-  FontAwesome5,
-  Feather,
-} from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, FontAwesome5, Feather } from "@expo/vector-icons";
+import { validatePhone } from "../utils/validations";
 
 const EditarPerfil = ({ navigation, route }) => {
   const [formData, setFormData] = useState({
@@ -35,11 +31,10 @@ const EditarPerfil = ({ navigation, route }) => {
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          const { fecharegistro, descripcion, ...rest } = data; // quitamos "descripcion"
+          const { fecharegistro, descripcion, ...rest } = data;
           setFormData(rest);
         }
       } catch (error) {
-        console.error("Error al obtener usuario:", error);
         Alert.alert("Error", "No se pudieron cargar tus datos");
       } finally {
         setLoading(false);
@@ -54,6 +49,15 @@ const EditarPerfil = ({ navigation, route }) => {
   };
 
   const handleGuardar = async () => {
+    if (!formData.nombre.trim()) {
+      Alert.alert("⚠️ Nombre requerido", "El nombre no puede estar vacío.");
+      return;
+    }
+    if (formData.telefono && !validatePhone(formData.telefono)) {
+      Alert.alert("⚠️ Teléfono inválido", "Debe contener solo números (8 a 15 dígitos).");
+      return;
+    }
+
     try {
       const uid = auth.currentUser.uid;
       const docRef = doc(db, "usuarios", uid);
@@ -68,24 +72,16 @@ const EditarPerfil = ({ navigation, route }) => {
         { text: "OK", onPress: () => navigation.goBack() },
       ]);
     } catch (error) {
-      console.error("Error al actualizar perfil:", error);
       Alert.alert("❌ Error", "No se pudo actualizar el perfil");
     }
   };
 
   if (loading) {
-    return (
-      <Text style={{ textAlign: "center", marginTop: 50 }}>
-        Cargando datos...
-      </Text>
-    );
+    return <Text style={{ textAlign: "center", marginTop: 50 }}>Cargando datos...</Text>;
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <MaterialCommunityIcons name="leaf" size={40} color="#00796b" />
         <Text style={styles.titulo}>Editar Perfil</Text>
@@ -93,16 +89,11 @@ const EditarPerfil = ({ navigation, route }) => {
       </View>
 
       {["nombre", "email", "empresa", "telefono"].map((campo) => {
-        const editable = campo !== "email"; // email no editable
+        const editable = campo !== "email";
 
         return (
           <View key={campo} style={styles.inputGroup}>
-            <Feather
-              name="edit-2"
-              size={20}
-              color="#00796b"
-              style={styles.inputIcon}
-            />
+            <Feather name="edit-2" size={20} color="#00796b" style={styles.inputIcon} />
             <TextInput
               style={[styles.input, !editable && { backgroundColor: "#e0e0e0" }]}
               placeholder={`Ingrese ${campo}`}
@@ -116,12 +107,7 @@ const EditarPerfil = ({ navigation, route }) => {
       })}
 
       <TouchableOpacity style={styles.botonGuardar} onPress={handleGuardar}>
-        <Ionicons
-          name="save-outline"
-          size={24}
-          color="white"
-          style={{ marginRight: 8 }}
-        />
+        <Ionicons name="save-outline" size={24} color="white" style={{ marginRight: 8 }} />
         <Text style={styles.botonTexto}>Actualizar Perfil</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -129,11 +115,7 @@ const EditarPerfil = ({ navigation, route }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: "#d0e8f2",
-    flexGrow: 1,
-  },
+  container: { padding: 20, backgroundColor: "#ffffffff", flexGrow: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -144,12 +126,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     elevation: 6,
   },
-  titulo: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#00796b",
-    textAlign: "center",
-  },
+  titulo: { fontSize: 24, fontWeight: "700", color: "#00796b", textAlign: "center" },
   inputGroup: {
     flexDirection: "row",
     alignItems: "center",
@@ -161,15 +138,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     elevation: 3,
   },
-  inputIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    height: 48,
-    fontSize: 16,
-    color: "#333",
-  },
+  inputIcon: { marginRight: 8 },
+  input: { flex: 1, height: 48, fontSize: 16, color: "#333" },
   botonGuardar: {
     backgroundColor: "#4caf50",
     marginTop: 20,
@@ -180,11 +150,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 8,
   },
-  botonTexto: {
-    fontSize: 18,
-    color: "white",
-    fontWeight: "700",
-  },
+  botonTexto: { fontSize: 18, color: "white", fontWeight: "700" },
 });
 
 export default EditarPerfil;

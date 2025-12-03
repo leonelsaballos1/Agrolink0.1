@@ -58,7 +58,7 @@ export default function Home() {
 
        <TouchableOpacity
   style={styles.card}
-  onPress={() => navigation.navigate('ListarClientesMinimal')}
+  onPress={() => navigation.navigate('ListarClientes')}
 >
   <FontAwesome5 name="clipboard-list" size={50} color="#388e3c" />
   <Text style={styles.cardText}>Registro</Text>
@@ -82,7 +82,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#dbeff0',
+    backgroundColor: '#ffffffff',
     paddingTop: 50,
     paddingHorizontal: 20,
   },

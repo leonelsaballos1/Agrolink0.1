@@ -1,4 +1,3 @@
-// BaseDeDatos/Firebase.js
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -6,9 +5,8 @@ import {
   initializeAuth,
   getReactNativePersistence,
 } from "firebase/auth";
-import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// ⚡ Configuración de tu Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCgRip-vOzkAVB9l4w-hoIZcm_zr3mAGaw",
   authDomain: "agriges-432cb.firebaseapp.com",
@@ -20,16 +18,11 @@ const firebaseConfig = {
   measurementId: "G-XQ5BDMQ5GG",
 };
 
-// Inicializa Firebase
-const appFirebase = initializeApp(firebaseConfig);
-
-// ✅ Inicializa Auth con persistencia en AsyncStorage
-const auth = initializeAuth(appFirebase, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+const app = initializeApp(firebaseConfig);
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
 });
+const db = getFirestore(app);
+const storage = getStorage(app);
 
-// Firestore y Storage
-const db = getFirestore(appFirebase);
-const storage = getStorage(appFirebase);
-
-export { db, auth, storage };
+export { app, auth, db, storage };

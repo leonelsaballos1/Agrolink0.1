@@ -5,6 +5,7 @@ import {
 import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { auth } from '../BasedeDatos/Firebase';
 
 export default function RegistrarCliente({ route }) {
   const { guardarNuevo, clienteExistente, idCliente } = route.params;
@@ -137,11 +138,26 @@ export default function RegistrarCliente({ route }) {
       Alert.alert('Faltan datos', 'Por favor, complete el nombre del agricultor y la planta');
       return;
     }
-    const nuevoCliente = { agricultor, planta, diaSombra, variedad, diaCorte, recomendaciones };
-    guardarNuevo(nuevoCliente, modoEdicion ? idCliente : null);
-    Alert.alert(modoEdicion ? 'Datos actualizados' : 'Registro guardado', '', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    const user = auth.currentUser;
+    if (user) {
+      const nuevoCliente = {
+        agricultor,
+        planta,
+        diaSombra,
+        variedad,
+        diaCorte,
+        recomendaciones,
+        userId: user.uid,
+      };
+      guardarNuevo(nuevoCliente, modoEdicion ? idCliente : null);
+      Alert.alert(
+        modoEdicion ? 'Datos actualizados' : 'Registro guardado',
+        '',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } else {
+      Alert.alert('Error', 'No se ha podido identificar al usuario.');
+    }
   };
 
   return (
@@ -278,13 +294,13 @@ export default function RegistrarCliente({ route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#d0e8f2' },
+  container: { flex: 1, backgroundColor: '#ffffffff' },
   scrollContainer: { padding: 20, paddingBottom: 40 },
   title: { fontSize: 22, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
   label: { fontSize: 16, fontWeight: '600', marginTop: 10 },
   inputContainer: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#e0f7fa', borderRadius: 10,
+    backgroundColor: '#ffffffff', borderRadius: 10,
     paddingHorizontal: 10, marginBottom: 10,
   },
   input: { flex: 1, height: 40, marginLeft: 10 },

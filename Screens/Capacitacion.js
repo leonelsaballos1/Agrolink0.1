@@ -1,118 +1,98 @@
 // CapacitacionesEnLinea.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Linking,
   TextInput,
   Alert,
+  Linking,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { db, auth } from "../BasedeDatos/Firebase";
+import { collection, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 
 export default function CapacitacionesEnLinea() {
   const navigation = useNavigation();
-
-  const [capacitaciones, setCapacitaciones] = useState([
-    {
-      id: 1,
-      nombreCapacitador: "Laura Fernández",
-      correo: "laura.fernandez@consult.com",
-      telefono: "+505 57321478",
-      fecha: "Lunes 3 de junio, 10:00 AM",
-      duracion: "2 horas",
-      plataforma: "Zoom",
-      enlace: "https://zoom.us/j/1234567890",
-      idReunion: "123 4567 890",
-      codigoAcceso: "PROY2025",
-    },
-    {
-      id: 2,
-      nombreCapacitador: "Juan Granado",
-      correo: "juan.granado@.com",
-      telefono: "+505 55642199",
-      fecha: "Lunes 30 de junio, 11:00 AM",
-      duracion: "2 horas",
-      plataforma: "Zoom",
-      enlace: "https://zoom.us/j/1251234670",
-      idReunion: "125 1234 670",
-      codigoAcceso: "WERD2025",
-    },
-  ]);
-
+  const [capacitaciones, setCapacitaciones] = useState([]);
   const [busqueda, setBusqueda] = useState("");
+  const user = auth.currentUser;
 
-  // 🔹 Videos
+
+  // 🔹 Videos (constantes locales — no se borran)
   const videos = [
-    {
-      titulo: "Cultivo de frijoles en Nicaragua",
-      url: "https://www.youtube.com/watch?v=qmnq5XVSxDY",
-    },
-    {
-      titulo: "Siembra de frijol en el ciclo de primera",
-      url: "https://www.youtube.com/watch?v=xKJ_IJ3DX2M",
-    },
-    {
-      titulo: "Producción del cultivo de maíz en época de primera",
-      url: "https://www.youtube.com/watch?v=3SoHBbmjaD4",
-    },
-    {
-      titulo: "Cultivo de maíz amarillo duro megahíbrido",
-      url: "https://www.youtube.com/watch?v=eF91WTKdMzw",
-    },
-    {
-      titulo: "Productores cuentan experiencias en cultivar sorgo",
-      url: "https://www.youtube.com/watch?v=e2DJxK83yG4",
-    },
-    {
-      titulo: "Manejo de semilla y establecimiento del cultivo de sorgo",
-      url: "https://www.youtube.com/watch?v=PuXUcNt_YHY",
-    },
+    { titulo: "Cultivo de frijoles en Nicaragua", url: "https://www.youtube.com/watch?v=qmnq5XVSxDY" },
+    { titulo: "Siembra de frijol en el ciclo de primera", url: "https://www.youtube.com/watch?v=xKJ_IJ3DX2M" },
+    { titulo: "Producción del cultivo de maíz en época de primera", url: "https://www.youtube.com/watch?v=3SoHBbmjaD4" },
+    { titulo: "Cultivo de maíz amarillo duro megahíbrido", url: "https://www.youtube.com/watch?v=eF91WTKdMzw" },
+    { titulo: "Productores cuentan experiencias en cultivar sorgo", url: "https://www.youtube.com/watch?v=e2DJxK83yG4" },
+    { titulo: "Manejo de semilla y establecimiento del cultivo de sorgo", url: "https://www.youtube.com/watch?v=PuXUcNt_YHY" },
   ];
 
-  // 🔹 Documentos
+  // 🔹 Documentos (constantes locales — no se borran)
   const documentos = [
-    {
-      titulo: "Guía técnica para el cultivo de frijoles en Nicaragua",
-      url: "https://inta.gob.ni/documentos/guia_tecnica_frijoles.pdf",
-    },
-    {
-      titulo: "Manual de buenas prácticas agrícolas para maíz",
-      url: "https://inta.gob.ni/documentos/manual_bpa_maiz.pdf",
-    },
-    {
-      titulo: "Recomendaciones para el cultivo de sorgo en Nicaragua",
-      url: "https://inta.gob.ni/documentos/recomendaciones_sorgo.pdf",
-    },
+    { titulo: "Guía técnica para el cultivo de frijoles en Nicaragua", url: "https://inta.gob.ni/documentos/guia_tecnica_frijoles.pdf" },
+    { titulo: "Manual de buenas prácticas agrícolas para maíz", url: "https://inta.gob.ni/documentos/manual_bpa_maiz.pdf" },
+    { titulo: "Recomendaciones para el cultivo de sorgo en Nicaragua", url: "https://inta.gob.ni/documentos/recomendaciones_sorgo.pdf" },
   ];
 
-  // Función para borrar
-  const handleBorrar = (id) => {
-    Alert.alert("⚠️ Confirmar", "¿Deseas eliminar esta capacitación?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Eliminar",
-        style: "destructive",
-        onPress: () =>
-          setCapacitaciones(capacitaciones.filter((c) => c.id !== id)),
+  // 🔹 Escuchar capacitaciones en tiempo real
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "capacitaciones"),
+      (snapshot) => {
+        const lista = snapshot.docs.map((docItem) => ({
+          id: docItem.id,
+          idFirebase: docItem.id,
+          ...docItem.data(),
+        }));
+        setCapacitaciones(lista);
       },
-    ]);
+      (error) => {
+        console.error("Error cargando capacitaciones:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // 🔹 Borrar capacitación (solo borra documentos en Firestore; videos/doc no se tocan)
+  const handleBorrar = async (idFirebase) => {
+    if (user && user.email === "leonelsaballos999@gmail.com") {
+      Alert.alert("⚠️ Confirmar", "¿Deseas eliminar esta capacitación?", [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(db, "capacitaciones", idFirebase));
+            } catch (error) {
+              console.log(error);
+            }
+          },
+        },
+      ]);
+    } else {
+      Alert.alert(
+        "Acceso denegado",
+        "Solo el administrador puede eliminar capacitaciones."
+      );
+    }
   };
 
-  // Filtrar por búsqueda
+  // 🔹 Filtrar por búsqueda
   const capacitacionesFiltradas = capacitaciones.filter((c) =>
-    c.nombreCapacitador.toLowerCase().includes(busqueda.toLowerCase())
+    c.nombreCapacitador?.toLowerCase().includes(busqueda.toLowerCase())
   );
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
-      {/* Cabecera */}
       <Text style={styles.header}>👨‍🌾 Capacitaciones en línea</Text>
 
-      {/* Buscar */}
       <TextInput
         style={styles.searchInput}
         placeholder="🔍 Buscar por capacitador..."
@@ -120,21 +100,14 @@ export default function CapacitacionesEnLinea() {
         onChangeText={setBusqueda}
       />
 
-      {/* Botón agregar */}
       <TouchableOpacity
         style={[styles.linkButton, { backgroundColor: "#2196F3", marginBottom: 20 }]}
-        onPress={() =>
-          navigation.navigate("AgregarCapacitacion", {
-            onGuardar: (nueva) =>
-              setCapacitaciones([...capacitaciones, { ...nueva, id: Date.now() }]),
-          })
-        }
+        onPress={() => navigation.navigate("AgregarCapacitacion")}
       >
         <Ionicons name="add-circle" size={20} color="#fff" />
         <Text style={styles.linkText}>Agregar Capacitación</Text>
       </TouchableOpacity>
 
-      {/* Lista */}
       {capacitacionesFiltradas.map((item) => (
         <View key={item.id} style={styles.card}>
           <Text style={styles.sectionHeader}>🧑‍🏫 {item.nombreCapacitador}</Text>
@@ -144,27 +117,19 @@ export default function CapacitacionesEnLinea() {
           <Text>• Duración: {item.duracion}</Text>
           <Text>• Plataforma: {item.plataforma}</Text>
 
-          <TouchableOpacity onPress={() => Linking.openURL(item.enlace)}>
-            <Text style={styles.linkInline}>🔗 Abrir enlace</Text>
-          </TouchableOpacity>
+          {item.enlace ? (
+            <TouchableOpacity onPress={() => Linking.openURL(item.enlace)}>
+              <Text style={styles.linkInline}>🔗 Abrir enlace</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <Text>• ID: {item.idReunion}</Text>
           <Text>• Código: {item.codigoAcceso}</Text>
 
-          {/* Botones de acción */}
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: "#FFA000" }]}
-              onPress={() =>
-                navigation.navigate("AgregarCapacitacion", {
-                  capacitacion: item,
-                  onActualizar: (actualizada) =>
-                    setCapacitaciones(
-                      capacitaciones.map((c) =>
-                        c.id === item.id ? { ...actualizada, id: item.id } : c
-                      )
-                    ),
-                })
-              }
+              onPress={() => navigation.navigate("AgregarCapacitacion", { capacitacion: item })}
             >
               <Ionicons name="create" size={18} color="#fff" />
               <Text style={styles.actionText}>Editar</Text>
@@ -172,7 +137,7 @@ export default function CapacitacionesEnLinea() {
 
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: "#D32F2F" }]}
-              onPress={() => handleBorrar(item.id)}
+              onPress={() => handleBorrar(item.idFirebase)}
             >
               <Ionicons name="trash" size={18} color="#fff" />
               <Text style={styles.actionText}>Eliminar</Text>
@@ -181,7 +146,7 @@ export default function CapacitacionesEnLinea() {
         </View>
       ))}
 
-      {/* Videos */}
+      {/* Videos (siempre locales) */}
       <View style={styles.card}>
         <Text style={styles.sectionHeader}>🎥 Videos en Español</Text>
         {videos.map((video, index) => (
@@ -196,7 +161,7 @@ export default function CapacitacionesEnLinea() {
         ))}
       </View>
 
-      {/* Documentos */}
+      {/* Documentos (siempre locales) */}
       <View style={styles.card}>
         <Text style={styles.sectionHeader}>📄 Documentos en Español</Text>
         {documentos.map((doc, index) => (

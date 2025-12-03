@@ -26,8 +26,24 @@ export default function LoginScreen({ navigation }) {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       Alert.alert("✅ Bienvenido", "Has iniciado sesión correctamente");
+      navigation.navigate("Home");
     } catch (error) {
-      Alert.alert("❌ Error", error.message);
+      let errorMessage = "Ocurrió un error inesperado.";
+      switch (error.code) {
+        case "auth/invalid-credential":
+          errorMessage = "El correo electrónico o la contraseña son incorrectos.";
+          break;
+        case "auth/user-not-found":
+          errorMessage = "No se encontró ninguna cuenta con este correo electrónico.";
+          break;
+        case "auth/wrong-password":
+          errorMessage = "La contraseña es incorrecta.";
+          break;
+        default:
+          errorMessage = error.message;
+          break;
+      }
+      Alert.alert("❌ Error", errorMessage);
     }
   };
 
@@ -55,8 +71,8 @@ export default function LoginScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            <Image source={require("../assets/logi/2.png")} style={styles.logo} />
-            <Text style={styles.title}>Agrolink</Text>
+            <Image source={require("../assets/logi/1.png")} style={styles.logo} />
+          
             <Text style={styles.subtitle}>Inicio de sesión</Text>
 
             <TextInput
@@ -77,7 +93,7 @@ export default function LoginScreen({ navigation }) {
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#5c8f56" />
+                <Ionicons name={showPassword ? "eye-off" : "eye"} size={24} color="#000000ff" />
               </TouchableOpacity>
             </View>
 
@@ -103,12 +119,12 @@ const styles = StyleSheet.create({
   scrollContainer: { flexGrow: 1 },
   container: {
     flex: 1,
-    backgroundColor: "#a3d9a5",
+    backgroundColor: "#ffffffff",
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 30,
   },
-  logo: { width: 120, height: 120, marginBottom: 20, borderRadius: 60 },
+  logo: { width: 500, height: 120, marginBottom: 20, borderRadius: 60 },
   title: { fontSize: 28, fontWeight: "bold", marginBottom: 10, color: "#1d2570" },
   subtitle: { fontSize: 18, marginBottom: 30 },
   input: {
@@ -118,7 +134,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#71b26c",
+    borderColor: "#000000ff",
   },
   passwordContainer: {
     flexDirection: "row",
@@ -128,12 +144,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: "#71b26c",
+    borderColor: "#000000ff",
     paddingHorizontal: 10,
   },
   passwordInput: { flex: 1, padding: 12 },
   button: {
-    backgroundColor: "#5c8f56",
+    backgroundColor: "#294b29",
     padding: 15,
     borderRadius: 20,
     width: "80%",

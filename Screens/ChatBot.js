@@ -16,24 +16,31 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Voice from "@react-native-voice/voice";
 import * as Speech from "expo-speech";
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { auth } from "../BasedeDatos/Firebase";
 
 export default function ChatbotVoice() {
- const [messages, setMessages] = useState([
-  {
-    id: "1",
-    sender: "bot",
-    text: "¡Bienvenido! Soy Agrolink, su asistente especializado en agricultura nicaragüense. Puede preguntarme sobre técnicas de siembra, control de plagas, fertilización y más.",
-  },
-]);
+  const [messages, setMessages] = useState([
+    {
+      id: "1",
+      sender: "bot",
+      text: "¡Bienvenido! Soy Agrolink, su asistente especializado en agricultura nicaragüense. Puede preguntarme sobre técnicas de siembra, control de plagas, fertilización y más.",
+    },
+  ]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [inputHeight, setInputHeight] = useState(40); // 🔹 altura inicial
+  const [user, setUser] = useState(null);
 
   const flatListRef = useRef();
 
-  // 🔹 Cargar historial al inicio
   useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      setUser(currentUser);
+    }
+
     loadChatHistory();
     Voice.onSpeechResults = onSpeechResults;
     Voice.onSpeechError = (err) => {
@@ -43,9 +50,8 @@ export default function ChatbotVoice() {
     return () => {
       Voice.destroy().then(Voice.removeAllListeners);
     };
-  }, []);
+  }, [user]);
 
-  // 🔹 Guardar historial cada vez que cambia
   useEffect(() => {
     saveChatHistory();
   }, [messages]);
@@ -81,6 +87,7 @@ export default function ChatbotVoice() {
     const newMessage = { id: Date.now().toString(), sender: "user", text: input };
     setMessages((prev) => [...prev, newMessage]);
     setInput("");
+    setInputHeight(40); // 🔹 reset altura al enviar
     setLoading(true);
 
     try {
@@ -88,6 +95,8 @@ export default function ChatbotVoice() {
         inputText: newMessage.text,
         geographicContext: "Nicaragua, zonas rurales",
         history: [],
+        system_prompt:
+          "Eres un asistente de agricultura experto y muy detallado. Tu única función es responder preguntas sobre agricultura en Nicaragua. Proporciona respuestas completas, bien explicadas y, si es posible, en formato de lista o paso a paso para que sean más fáciles de entender. No abrevies las respuestas. Si la pregunta no está relacionada con la agricultura, debes responder: 'Por el momento, solo puedo responder preguntas sobre agricultura.'",
       };
 
       const res = await fetch(
@@ -100,7 +109,8 @@ export default function ChatbotVoice() {
       );
       const data = await res.json();
 
-      const botText = data.responseText || "Lo siento, no obtuve respuesta.";
+      let botText = data.responseText || "Lo siento, no obtuve respuesta.";
+      botText = botText.replace(/[\*\/]/g, ""); // Eliminar todos los asteriscos y slashes
       const botMessage = { id: Date.now().toString(), sender: "bot", text: botText };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -108,7 +118,9 @@ export default function ChatbotVoice() {
     } catch (error) {
       console.error(error);
       const errorMsg = "Error de conexión. Intente de nuevo.";
-      setMessages((prev) => [...prev, { id: Date.now().toString(), sender: "bot", text: errorMsg }]);
+      setMessages((prev) => [
+        { id: Date.now().toString(), sender: "bot", text: errorMsg },
+      ]);
       Speech.speak(errorMsg, { language: "es-NI" });
     } finally {
       setLoading(false);
@@ -116,16 +128,21 @@ export default function ChatbotVoice() {
   };
 
   const saveChatHistory = async () => {
+    if (!user) return;
     try {
-      await AsyncStorage.setItem("chatHistory", JSON.stringify(messages));
+      await AsyncStorage.setItem(
+        `chatHistory_${user.email}`,
+        JSON.stringify(messages)
+      );
     } catch (error) {
       console.error("Error guardando historial:", error);
     }
   };
 
   const loadChatHistory = async () => {
+    if (!user) return;
     try {
-      const history = await AsyncStorage.getItem("chatHistory");
+      const history = await AsyncStorage.getItem(`chatHistory_${user.email}`);
       if (history) setMessages(JSON.parse(history));
     } catch (error) {
       console.error("Error cargando historial:", error);
@@ -133,18 +150,19 @@ export default function ChatbotVoice() {
   };
 
   const clearHistory = async () => {
+    if (!user) return;
     Alert.alert("Confirmar", "¿Borrar todo el historial?", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Borrar",
         style: "destructive",
         onPress: async () => {
-          await AsyncStorage.removeItem("chatHistory");
+          await AsyncStorage.removeItem(`chatHistory_${user.email}`);
           setMessages([
             {
               id: "1",
               sender: "bot",
-              text: "¡Bienvenido! Soy Agrolink , su asistente especializado en agricultura nicaragüense. Puede preguntarme sobre técnicas de siembra, control de plagas, fertilización y más.",
+              text: "¡Bienvenido! Soy Agrolink, su asistente especializado en agricultura nicaragüense. Puede preguntarme sobre técnicas de siembra, control de plagas, fertilización y más.",
             },
           ]);
         },
@@ -168,7 +186,7 @@ export default function ChatbotVoice() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0} // Ajusta si tienes header
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
         <FlatList
           ref={flatListRef}
@@ -188,11 +206,15 @@ export default function ChatbotVoice() {
 
         <View style={styles.inputRow}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { height: inputHeight }]}
             placeholder="Escriba su mensaje"
             value={input}
             onChangeText={setInput}
             multiline
+            onContentSizeChange={(e) =>
+              setInputHeight(Math.min(e.nativeEvent.contentSize.height, 150))
+            } // 🔹 crece hasta 150px
+            textAlignVertical="top"
           />
 
           <TouchableOpacity
@@ -248,15 +270,19 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     backgroundColor: "#fff",
   },
-  input: {
-    flex: 1,
-    borderWidth: 1,
+ input: {
+    flex: 10,
+    borderWidth: 10,
     borderColor: "#ccc",
     borderRadius: 25,
     paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingVertical: 20,
     backgroundColor: "#fff",
+    textAlignVertical: "top", // ✅ Importante en Android
+     // para que no sea tan pequeño
   },
+
+
   button: {
     backgroundColor: "#2F855A",
     paddingHorizontal: 15,

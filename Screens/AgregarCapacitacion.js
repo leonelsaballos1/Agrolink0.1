@@ -7,15 +7,19 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { db, auth } from "../BasedeDatos/Firebase";
+import { collection, addDoc, updateDoc, doc } from "firebase/firestore";
 
 export default function AgregarCapacitacion() {
   const navigation = useNavigation();
   const route = useRoute();
 
-  const { capacitacion, onGuardar, onActualizar } = route.params || {};
+  const { capacitacion } = route.params || {};
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [form, setForm] = useState({
     nombreCapacitador: "",
@@ -30,29 +34,65 @@ export default function AgregarCapacitacion() {
   });
 
   useEffect(() => {
+    const user = auth.currentUser;
+    if (user && user.email === "leonelsaballos999@gmail.com") {
+      setIsAdmin(true);
+    } else {
+      Alert.alert(
+        "Acceso denegado",
+        "No tienes permiso para acceder a esta función."
+      );
+      navigation.goBack();
+    }
+
     if (capacitacion) setForm(capacitacion);
-  }, [capacitacion]);
+  }, [capacitacion, navigation]);
 
   const handleChange = (field, value) => {
     setForm({ ...form, [field]: value });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!isAdmin) {
+      Alert.alert(
+        "Acceso denegado",
+        "No tienes permiso para realizar esta acción."
+      );
+      return;
+    }
+
     if (!form.nombreCapacitador || !form.fecha) {
       Alert.alert("⚠️ Error", "El nombre y la fecha son obligatorios.");
       return;
     }
 
-    if (capacitacion && onActualizar) {
-      onActualizar(form);
-      Alert.alert("✅ Actualizado", "La capacitación fue actualizada.");
-    } else if (onGuardar) {
-      onGuardar(form);
-      Alert.alert("✅ Guardado", "La capacitación fue registrada.");
+    try {
+      if (capacitacion?.idFirebase) {
+        // 🔹 Actualizar capacitación existente
+        await updateDoc(
+          doc(db, "capacitaciones", capacitacion.idFirebase),
+          form
+        );
+        Alert.alert("✅ Actualizado", "La capacitación fue actualizada.");
+      } else {
+        // 🔹 Agregar nueva capacitación
+        await addDoc(collection(db, "capacitaciones"), form);
+        Alert.alert("✅ Guardado", "La capacitación fue registrada.");
+      }
+      navigation.goBack();
+    } catch (error) {
+      console.error("Error guardando capacitación:", error);
+      Alert.alert("❌ Error", "No se pudo guardar la capacitación.");
     }
-
-    navigation.goBack();
   };
+
+  if (!isAdmin) {
+    return (
+      <View style={styles.container}>
+        <Text>No tienes permiso para ver esta pantalla.</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -80,7 +120,6 @@ export default function AgregarCapacitacion() {
         />
       ))}
 
-      {/* Botón Guardar/Actualizar */}
       <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
         <Ionicons name="save" size={20} color="#fff" />
         <Text style={styles.saveText}>

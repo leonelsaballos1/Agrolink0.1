@@ -6,10 +6,10 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   collection, doc, setDoc, deleteDoc,
-  onSnapshot, addDoc, getFirestore
+  onSnapshot, addDoc, getFirestore, query, where
 } from 'firebase/firestore';
 import { Picker } from '@react-native-picker/picker';
-import appFirebase from '../BasedeDatos/Firebase';
+import appFirebase, { auth } from '../BasedeDatos/Firebase';
 
 const db = getFirestore(appFirebase);
 
@@ -21,8 +21,21 @@ export default function ListarClientes({ navigation }) {
   const scaleValue = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
     const refClientes = collection(db, 'clientes');
-    const unsubscribe = onSnapshot(refClientes, (snapshot) => {
+    let q;
+
+    if (currentUser.email === 'leonelsaballos999@gmail.com') {
+      // Admin: fetch all documents
+      q = query(refClientes);
+    } else {
+      // Regular user: fetch only their own documents
+      q = query(refClientes, where('userId', '==', currentUser.uid));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const lista = snapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
@@ -47,12 +60,19 @@ export default function ListarClientes({ navigation }) {
   };
 
   const guardarNuevo = async (cliente, idExistente = null) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert("Error", "Debes iniciar sesión para guardar los datos.");
+      return;
+    }
+
     try {
       if (idExistente) {
         await setDoc(doc(db, 'clientes', idExistente), cliente);
       } else {
         await addDoc(collection(db, 'clientes'), {
           ...cliente,
+          userId: currentUser.uid,
           fechaRegistro: new Date(),
           estadoCultivo: cliente.estadoCultivo || {
             asertoFecha: false,
@@ -252,7 +272,7 @@ export default function ListarClientes({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#d0e8f2', padding: 20 },
+  container: { flex: 1, backgroundColor: '#ffffffff', padding: 20 },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   title: { fontSize: 26, fontWeight: '700' },
   botonAgregar: { backgroundColor: '#d0e8f2', padding: 10, borderRadius: 50, elevation: 8 },
@@ -267,7 +287,7 @@ const styles = StyleSheet.create({
   },
   inputBuscar: { fontSize: 16, paddingVertical: 8, color: '#333' },
   item: {
-    backgroundColor: '#e0f7fa',
+    backgroundColor: '#fefefeff',
     borderRadius: 16,
     marginBottom: 15,
     padding: 20,
